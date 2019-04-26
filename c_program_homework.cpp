@@ -394,14 +394,46 @@ void mycd()
 }//so a single cd makes it back to home directory
 
 void mycat()
-{
-	if(cmd_cnt==1)
-	{
-		//print everything input
-	}
+{	
+	if(cmd_cnt==1)//only one single input
+    {
+        cout<<"myshell: please input at least one file!\n";
+    }
 	else
 	{
-    	char pathname[MAX_PATH_LEN];//save current path
+		char buff;
+		int flag[cmd_cnt-1]={0},ifexists=0;
+		int frd;//file open index
+    	for(int i=1;i<cmd_cnt;i++)
+		{
+			if((frd=open(cmd_array[i],O_RDONLY))!=-1)
+			{
+				printf("%s:\n",cmd_array[i]);
+				while(read(frd,&buff,sizeof(char))!=0)
+				{
+					printf("%c",buff);//print characters
+				}
+				printf("\n");
+				flag[i-1]=1;
+				ifexists++;
+			}
+		}			
+        if(ifexists<cmd_cnt-1)//check if there's unexisting one when multiple inputs
+        {
+            printf("the following files do not exist: ");
+            for(int j=0;j<cmd_cnt-1;j++)
+            {
+                if(flag[j]==0)
+                {
+                    printf("%s  ",cmd_array[j+1]);//output not existing ones
+                }
+            }
+            printf("\n");
+        }
+	}
+}
+
+/*		char pathname[MAX_PATH_LEN];//save current path
     	DIR *dir;
     	struct dirent *dp;
     	if(!getcwd(pathname,MAX_PATH_LEN))//get path successfully or not
@@ -448,76 +480,45 @@ void mycat()
 			printf("\n");
 		}
 	}
-}
+} */
 
 void mymkdir()
 {
-	if(cmd_cnt>2)
+	for(int i=1;i<cmd_cnt;i++)
 	{
-		cout<<"myshell: too many arguments!\n";
-	}
-	else 
-		if(mkdir(cmd_array[1],0744)==-1)
+		if(mkdir(cmd_array[i],0744)==-1)
 		{
-			cout<<"myshell: create dir failed!";
+			cout<<"myshell: create dir  "<<cmd_array[i]<<"  failed!\n";
 		}
+	}
 }
 
 void mywordcount()
 {
 	if(cmd_cnt==1)
 	{
-		cout<<"myshell: what do you wanna know?";
+		cout<<"myshell: what do you wanna know?\n";
 	}
 	else
 	{
-		char pathname[MAX_PATH_LEN];
-		DIR *dir;
-		struct dirent *dp;
-		int amount=cmd_cnt-1,count=0,ifexists=0;
-		int flag[amount]={0};
-		if(!getcwd(pathname,MAX_PATH_LEN))
+		char buff;
+		int flag[cmd_cnt-1]={0},ifexists=0,count=0;
+		int frd;
+		for(int i=1;i<cmd_cnt;i++)
 		{
-			perror("myshell: getcwd");
-			exit(1);
-		}
-		dir=opendir(pathname);
-		while((dp=readdir(dir))!=NULL)
-		{
-			for(int i=1;i<cmd_cnt;i++)
+			if((frd=open(cmd_array[i],O_RDONLY))!=-1)
 			{
-				if(strcmp(cmd_array[i],dp->d_name)==0)
-				{
-					fstream file;
-					file.open(cmd_array[i]);
-					char ch=file.get();
-					while(ch!=EOF)
-					{	
-						count++;
-						ch=file.get();
-					}
-					file.close();
-					printf("%d characters in file : %s\n",count,cmd_array[i]);
-					count = 0;
-					ifexists++;
-					flag[i-1]=1;
+				while(read(frd,&buff,sizeof(char))!=0)
+				{	
+					count++;
 				}
+				cout<<"myshell: "<<count<<" characters in "<<cmd_array[i]<<endl;
 			}
+			else
+				cout<<"myshell: file "<<cmd_array[i]<<" does not exist!"<<endl;
 		}
-		if(ifexists<cmd_cnt-1)
-		{
-			printf("the following files do not exist: ");
-			for(int j=0;j<amount;j++)
-			{
-				if(flag[j]==0)
-				{
-					printf("%s  ",cmd_array[j+1]);
-				}
-			}
-			printf("\n");
-		}
-	}
-}	
+	}	
+}
 
 
 
