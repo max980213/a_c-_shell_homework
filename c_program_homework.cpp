@@ -28,7 +28,7 @@ using namespace std;
 
 //declare global variables
 extern char **environ;//environment variables
-char *cmd_array[MAX_LINE/2+1];//inputing cmd
+char *cmd_array[MAX_LINE];//inputing cmd
 int pipe_fd[2];//something about pipe,dont want to use it
 int cmd_cnt;//the number of strings in each cmd
 
@@ -45,11 +45,9 @@ void printprompt();//print cmd with path
 int getcommandlen();//calculate the length of each cmd
 void do_pipe(int pos);//do pipe cmd
 void run_external_cmd(int pos);//do external cmd
-int is_bg_cmd();//check background cmd
 void myquit();//just quit this shell
 void myexit();//exit directly
 void myclear();//like clear in bash
-void print_continue_info();//print information about continue(dont know what that means)
 void mypwd();//like pwd in bash
 void myecho();//like echo in bash
 void echo_redirect();//echo with rediction
@@ -75,7 +73,7 @@ void readcommand()//to read input cmd
 	char *helper;
 	memset(cmd_array,0,MAX_LINE/2+1);//clear it each times
 	fgets(str,MAX_LINE,stdin);
-//fgets is safer cuz it checks for overflow
+	//fgets is safer cuz it checks for overflow
 	if(str[strlen(str)-1]=='\n')
 	{
 		str[strlen(str)-1]='\0';//replace'\n'with '\0'
@@ -384,11 +382,15 @@ void mycd()
 			exit(1);
 		}
 	}
+	if(cmd_cnt>2)
+	{
+		cout<<"myshell: cd: what are you,ninja?"<<endl;
+	}
 	else//if there's a directory
 	{
 		if(chdir(cmd_array[1])==-1)//if something wrong happends in chdir
 		{
-			printf("myshell: cd: %s :No such file or directory\n",cmd_array[1]);
+			cout<<"myshell: cd: directory "<<cmd_array[1]<<" doest not exist"<<endl;
 		}
 	}
 }//so a single cd makes it back to home directory
@@ -397,39 +399,53 @@ void mycat()
 {	
 	if(cmd_cnt==1)//only one single input
     {
-        cout<<"myshell: please input at least one file!\n";
+        cout<<"myshell: cat: please input at least one file!\n";
     }
 	else
 	{
+		struct stat s;
 		char buff;
 		int flag[cmd_cnt-1]={0},ifexists=0;
 		int frd;//file open index
     	for(int i=1;i<cmd_cnt;i++)
 		{
-			if((frd=open(cmd_array[i],O_RDONLY))!=-1)
+			if(stat(cmd_array[i],&s)==0)
 			{
-				printf("%s:\n",cmd_array[i]);
-				while(read(frd,&buff,sizeof(char))!=0)
+				if(s.st_mode&S_IFDIR)
 				{
-					printf("%c",buff);//print characters
+					flag[i-1]=2;
+					continue;
 				}
-				printf("\n");
-				flag[i-1]=1;
-				ifexists++;
+				else
+				{
+					if((frd=open(cmd_array[i],O_RDONLY))!=-1)
+					{
+						printf("%s:\n",cmd_array[i]);
+						while(read(frd,&buff,sizeof(char))!=0)
+						{
+							printf("%c",buff);//print characters
+						}
+						printf("\n");
+						flag[i-1]=1;
+						ifexists++;
+					}
+				}	
 			}
-		}			
-        if(ifexists<cmd_cnt-1)//check if there's unexisting one when multiple inputs
-        {
-            printf("the following files do not exist: ");
-            for(int j=0;j<cmd_cnt-1;j++)
-            {
-                if(flag[j]==0)
-                {
-                    printf("%s  ",cmd_array[j+1]);//output not existing ones
-                }
-            }
-            printf("\n");
-        }
+		}		
+		if(ifexists<cmd_cnt-1)//check if there's unexisting one when multiple inputs
+		{
+			for(int j=0;j<cmd_cnt-1;j++)
+			{
+				if(flag[j]==0)
+				{
+					cout<<"myshell: cat: file "<<cmd_array[j+1]<<" does not exist"<<endl;
+				}
+				if(flag[j]==2)
+				{
+					cout<<"myshell: cat: "<<cmd_array[j+1]<<" is a directory"<<endl;
+				}	
+			}
+		}
 	}
 }
 
@@ -488,7 +504,7 @@ void mymkdir()
 	{
 		if(mkdir(cmd_array[i],0744)==-1)
 		{
-			cout<<"myshell: create dir  "<<cmd_array[i]<<"  failed!\n";
+			cout<<"myshell: create dir  "<<cmd_array[i]<<"  failed"<<endl;
 		}
 	}
 }
@@ -497,27 +513,41 @@ void mywordcount()
 {
 	if(cmd_cnt==1)
 	{
-		cout<<"myshell: what do you wanna know?\n";
+		cout<<"myshell: wc: what do you wanna know?\n";
 	}
 	else
 	{
+		struct stat s;
 		char buff;
 		int flag[cmd_cnt-1]={0},ifexists=0,count=0;
 		int frd;
 		for(int i=1;i<cmd_cnt;i++)
 		{
-			if((frd=open(cmd_array[i],O_RDONLY))!=-1)
+			if(stat(cmd_array[i],&s)!=0)
 			{
-				while(read(frd,&buff,sizeof(char))!=0)
-				{	
-					count++;
-				}
-				cout<<"myshell: "<<count<<" characters in "<<cmd_array[i]<<endl;
+			cout<<"myshell: wc: file "<<cmd_array[i]<<" does not exist"<<endl;
+			continue;
 			}
 			else
-				cout<<"myshell: file "<<cmd_array[i]<<" does not exist!"<<endl;
+			{
+				if(s.st_mode&S_IFDIR)
+				{
+					cout<<"myshell: wc: "<<cmd_array[i]<<" is a directory"<<endl;
+				}
+				else	
+				{
+					if((frd=open(cmd_array[i],O_RDONLY))!=-1)
+					{
+						while(read(frd,&buff,sizeof(char))!=0)
+						{	
+							count++;
+						}
+						cout<<"myshell: wc: "<<count<<" characters in "<<cmd_array[i]<<endl;
+					}
+				}	
+			}
 		}
-	}	
+	}
 }
 
 
@@ -534,18 +564,6 @@ void mytime()
 {
 
 }
-
- 
-
-
-
-
-
-
-
-
-
-
 
 
 
